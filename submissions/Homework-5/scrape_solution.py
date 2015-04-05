@@ -4,6 +4,7 @@
 import os
 import sys
 import time
+import re
 import argparse
 import logging
 import requests
@@ -134,19 +135,15 @@ def parse_hotellist_page(html):
         if num_reviews:
             log.info("Number of reviews: %s " % [x for x in num_reviews if "review" in x][0].strip())
 
-    # Get next URL page if exists, otherwise exit
-    div = soup.find("div", {"class" : "unified pagination "})
-    # check if this is the last page
-    if div.find('span', {'class' : 'nav next disabled'}):
-        log.info("We reached last page")
-        sys.exit()
-    # If not, return the url to the next page
-    hrefs = div.findAll('a', href= True)
-    for href in hrefs:
-        if href.find(text = True) == 'Next':
-            log.info("Next url is %s" % href['href'])
-            return href['href']
-
+    # Find the next page.
+    #
+    # Use regular expression because for some reason it won't
+    # find a basic string.
+    nextPage = soup.find("a", {'class': re.compile(r'\bsprite-pageNext\b')})
+    if nextPage:
+        return nextPage["href"]
+    else:
+        print("We reached last page")
 
 def scrape_hotels(city, state, datadir='data/'):
     """Runs the main scraper code
@@ -172,8 +169,9 @@ def scrape_hotels(city, state, datadir='data/'):
     # Get URL to obtaint the list of hotels in a specific city
     city_url = get_city_page(city, state, datadir)
     c = 0
-    while(True):
+    while(city_url):
         c += 1
+        print (c, city_url)
         html = get_hotellist_page(city_url, c, city, datadir)
         city_url = parse_hotellist_page(html)
 
