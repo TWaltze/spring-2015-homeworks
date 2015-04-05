@@ -146,25 +146,30 @@ def parse_hotellist_page(html):
     else:
         print "We reached last page"
 
+# Return a list of all hotels and their url
 def get_list_of_hotels(path = 'data/pages'):
+    # Combine all hotel pages into one
     html = ""
     for file in glob.glob(os.path.join(path, '*.html')):
         with open(file, 'r') as page:
             html = html + page.read()
 
+    # Find each hotel
     soup = BeautifulSoup(html)
     hotels = soup.findAll('div', {'class' :'listing wrap reasoning_v5_wrap jfy_listing p13n_imperfect'})
 
-    hotel_list = {}
+    # Extract each hotel's id and url
+    hotel_list = []
     for hotel in hotels:
         title = hotel.find("a", {'class': 'property_title'})
         url = title["href"]
         property_id = title["id"]
-        hotel_list[property_id] = url
+        hotel_list.append({
+            'id': property_id,
+            'url': url
+        })
 
     return hotel_list
-
-
 
 def get_hotel_page(url, saveAs = None):
     url = base_url + url
@@ -181,6 +186,46 @@ def get_hotel_page(url, saveAs = None):
             h.write(html)
 
     return html
+
+def get_hotel_info(url):
+    html = get_hotel_page(url)
+    soup = BeautifulSoup(html)
+
+    details = soup.find(id="REVIEWS")
+
+    # number of reviews this place has
+    reviews = int(re.sub(r"\D", "", details.find('h3', {'class': 'reviews_header'}).text))
+
+    # how many ratings of each type
+    ratings = {}
+    for rating in details.find('ul', {'class': 'barChart'}).findAll('div', {'class': 'wrap row'}):
+        rType = rating.find('span', {'class': 'text'}).text
+        rAmount = rating.find('span', {'class': 'compositeCount'}).text
+
+        ratings[rType] = int(re.sub(r"\D", "", rAmount))
+
+    # how many reviews for each trip type
+    tripType = {}
+    for review in details.find('div', {'class': 'trip_type'}).findAll('div', {'class': re.compile(r'\bsegment\b')}):
+        rType = review.find('div', {'class': re.compile(r'\bfilter_selection\b')}).text
+        rAmount = review.find('div', {'class': 'value'}).text
+
+        tripType[rType] = int(re.sub(r"\D", "", rAmount))
+
+    # rating of each attribute
+    summary = {}
+    for attr in details.find(id="SUMMARYBOX").findAll('li'):
+        name = attr.find('div', {'class': 'name'}).text
+        rating = attr.find('span', {'class': 'rate sprite-rating_s rating_s'}).find('img')['alt']
+
+        summary[name] = float(rating.split(' ')[0])
+
+    return {
+        'reviews': reviews,
+        'ratings': ratings,
+        'tripType': tripType,
+        'summary': summary
+    }
 
 def scrape_hotels(city, state, datadir='data/'):
     """Runs the main scraper code
