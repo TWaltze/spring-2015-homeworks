@@ -6,6 +6,7 @@ import sys
 import glob
 import time
 import re
+import json
 import argparse
 import logging
 import requests
@@ -226,6 +227,23 @@ def get_hotel_info(url):
         'tripType': tripType,
         'summary': summary
     }
+
+def save_info_of_hotel_list(output_file = 'data/hotel-info.json'):
+    hotels = get_list_of_hotels()
+
+    i = 1
+    info = []
+    for hotel in hotels:
+        print '{} of {} hotels.\n'.format(i, len(hotels))
+        info.append(get_hotel_info(hotel['url']))
+        i += 1
+
+    # Encode as json for writing to new file
+    encoded = json.dumps(info)
+
+    # Write to new file
+    with open(output_file, "w") as output:
+        output.write(encoded)
 
 def scrape_hotels(city, state, datadir='data/'):
     """Runs the main scraper code
