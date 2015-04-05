@@ -3,6 +3,7 @@
 
 import os
 import sys
+import glob
 import time
 import re
 import argparse
@@ -62,7 +63,7 @@ def get_city_page(city, state, datadir):
     return city_url['href']
 
 
-def get_hotellist_page(city_url, page_count, city, datadir='data/'):
+def get_hotellist_page(city_url, page_count, city, datadir='data/pages'):
     """ Returns the hotel list HTML. The URL of the list is the result of
     get_city_page(). Also, saves a copy of the HTML to the disk. Corresponds to
     STEP 3 of the slides.
@@ -91,7 +92,7 @@ def get_hotellist_page(city_url, page_count, city, datadir='data/'):
     response = requests.get(url, headers=headers)
     html = response.text.encode('utf-8')
     # Save the webpage
-    with open(os.path.join(datadir, city + '-hotelist-' + str(page_count) + '.html'), "w") as h:
+    with open(os.path.join(datadir, city + '-hotellist-' + str(page_count) + '.html'), "w") as h:
         h.write(html)
     return html
 
@@ -143,7 +144,43 @@ def parse_hotellist_page(html):
     if nextPage:
         return nextPage["href"]
     else:
-        print("We reached last page")
+        print "We reached last page"
+
+def get_list_of_hotels(path = 'data/pages'):
+    html = ""
+    for file in glob.glob(os.path.join(path, '*.html')):
+        with open(file, 'r') as page:
+            html = html + page.read()
+
+    soup = BeautifulSoup(html)
+    hotels = soup.findAll('div', {'class' :'listing wrap reasoning_v5_wrap jfy_listing p13n_imperfect'})
+
+    hotel_list = {}
+    for hotel in hotels:
+        title = hotel.find("a", {'class': 'property_title'})
+        url = title["href"]
+        property_id = title["id"]
+        hotel_list[property_id] = url
+
+    return hotel_list
+
+
+
+def get_hotel_page(url, saveAs = None):
+    url = base_url + url
+    # Sleep 2 sec before starting a new http request
+    time.sleep(2)
+    # Request page
+    headers = { 'User-Agent' : user_agent }
+    response = requests.get(url, headers=headers)
+    html = response.text.encode('utf-8')
+
+    # Save the webpage
+    if saveAs:
+        with open(os.path.join(datadir, city + '-hotel-' + str(saveAs) + '.html'), "w") as h:
+            h.write(html)
+
+    return html
 
 def scrape_hotels(city, state, datadir='data/'):
     """Runs the main scraper code
@@ -172,7 +209,7 @@ def scrape_hotels(city, state, datadir='data/'):
     while(city_url):
         c += 1
         print (c, city_url)
-        html = get_hotellist_page(city_url, c, city, datadir)
+        html = get_hotellist_page(city_url, c, city, datadir + "pages")
         city_url = parse_hotellist_page(html)
 
 
